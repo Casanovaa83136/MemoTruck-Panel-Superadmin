@@ -1063,7 +1063,7 @@ function packBadge(pack) {
 }
 
 // ─── Prix des packs / calculs budget ─────────────────────────────────────
-const PACK_FIXED_PRICE = { starter: 79, pme: 129, pro: 219 };
+const PACK_FIXED_PRICE = { starter: 129, pme: 199, pro: 249 };
 function montantMensuel(e) {
   if (e.pack === "entreprise") return e.montant_mensuel_personnalise || null;
   return PACK_FIXED_PRICE[e.pack] ?? null;
