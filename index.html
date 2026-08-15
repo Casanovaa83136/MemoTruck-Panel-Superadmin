@@ -10,6 +10,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
+  color-scheme: dark;
   --bg:#09111B;
   --surface:#0D1825;
   --card:#111F2E;
@@ -438,18 +439,40 @@ tbody tr:hover{background:rgba(0,194,255,0.03)}
 .sa-error{font-size:12px;color:var(--danger);text-align:center;min-height:16px}
 
 /* ── PROFILS VÉHICULES (grille de cases à cocher) ── */
-.sa-profils-hint{font-size:11px;color:var(--muted);margin-top:-6px}
+.sa-profils-hint{font-size:11.5px;color:var(--muted-2);margin-top:-6px;line-height:1.5;background:rgba(0,194,255,0.06);border:1px solid rgba(0,194,255,0.15);border-radius:var(--radius-sm);padding:8px 10px}
+.sa-profils-hint b{color:var(--text)}
 .sa-profils-toolbar{display:flex;justify-content:flex-end;gap:14px}
 .sa-profils-link{font-size:11px;color:var(--accent);cursor:pointer;font-weight:700;background:none;border:none;font-family:inherit;padding:0}
 .sa-profils-link:hover{text-decoration:underline}
 .sa-profils-wrap{display:flex;flex-direction:column;gap:10px}
 .sa-profils-group{border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px}
 .sa-profils-group-title{font-size:9px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
-.sa-profils-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
-.sa-profils-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);cursor:pointer}
-.sa-profils-item input{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0}
+.sa-profils-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.sa-profils-item{
+  display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text);cursor:pointer;
+  padding:9px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--card);transition:border-color .15s,background .15s;
+}
+.sa-profils-item:hover{border-color:var(--border-strong)}
+.sa-profils-item:has(input:checked){
+  border-color:var(--accent);background:rgba(0,194,255,0.1);color:var(--text);font-weight:600;
+}
+.sa-profils-item input{accent-color:var(--accent);width:18px;height:18px;cursor:pointer;flex-shrink:0}
 .sa-profils-badges{display:flex;flex-wrap:wrap;gap:6px}
 .sa-profils-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;background:rgba(0,194,255,0.08);color:var(--accent);border:1px solid rgba(0,194,255,0.18)}
+
+/* ── Toggle "option" carte (case + titre + description) ── */
+.sa-option-toggle{
+  display:flex;align-items:flex-start;gap:12px;cursor:pointer;
+  padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--card);transition:border-color .15s,background .15s;
+}
+.sa-option-toggle:hover{border-color:var(--border-strong)}
+.sa-option-toggle:has(input:checked){border-color:var(--accent);background:rgba(0,194,255,0.1)}
+.sa-option-toggle input{accent-color:var(--accent);width:20px;height:20px;cursor:pointer;flex-shrink:0;margin-top:1px}
+.sa-option-toggle-text{display:flex;flex-direction:column;gap:3px}
+.sa-option-toggle-title{font-size:13px;font-weight:700;color:var(--text)}
+.sa-option-toggle-desc{font-size:11.5px;color:var(--muted-2);line-height:1.4}
 
 /* ── TOAST ── */
 .sa-toast{
@@ -621,7 +644,7 @@ tbody tr:hover{background:rgba(0,194,255,0.03)}
     </div>
 
     <div class="sa-section-sep">VÉHICULES AUTORISÉS</div>
-    <div class="sa-profils-hint">Types de véhicules que l'entreprise pourra ajouter dans son parc.</div>
+    <div class="sa-profils-hint">Coche les types de véhicules que cette entreprise pourra ajouter à son parc. <b>Aucune case cochée = aucune restriction</b> (tous les types seront autorisés).</div>
     <div class="sa-profils-toolbar">
       <button type="button" class="sa-profils-link" id="profils-select-all">Tout cocher</button>
       <button type="button" class="sa-profils-link" id="profils-select-none">Tout décocher</button>
@@ -629,9 +652,12 @@ tbody tr:hover{background:rgba(0,194,255,0.03)}
     <div class="sa-profils-wrap" id="modal-profils-grid"></div>
 
     <div class="sa-section-sep">OPTIONS</div>
-    <label class="sa-field" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-      <input type="checkbox" id="modal-panel-mecano" style="width:18px;height:18px;" />
-      <span>🔧 Panel atelier (mécanicien) — permet de créer des comptes mécanicien pour cette entreprise</span>
+    <label class="sa-option-toggle">
+      <input type="checkbox" id="modal-panel-mecano" />
+      <div class="sa-option-toggle-text">
+        <div class="sa-option-toggle-title">🔧 Panel atelier (mécanicien)</div>
+        <div class="sa-option-toggle-desc">Autorise cette entreprise à créer des comptes mécanicien pour son atelier.</div>
+      </div>
     </label>
 
     <div class="sa-section-sep" id="modal-admin-section">COMPTE ADMIN</div>
@@ -1113,6 +1139,15 @@ const VEHICLE_PROFILE_GROUPS = [
     { id: "porte_char_4e", label: "Porte-char 4 essieux" },
     { id: "porte_char_5e", label: "Porte-char 5 essieux" },
     { id: "porte_char_6e", label: "Porte-char 6 essieux" },
+  ]},
+  { title: "Citernes & remorques frigo", items: [
+    { id: "citerne_alim_2c",   label: "Citerne alimentaire 2 compartiments" },
+    { id: "citerne_alim_3c",   label: "Citerne alimentaire 3 compartiments" },
+    { id: "citerne_alim_4c",   label: "Citerne alimentaire 4 compartiments" },
+    { id: "citerne_alim_5c",   label: "Citerne alimentaire 5 compartiments" },
+    { id: "citerne_alim_6c",   label: "Citerne alimentaire 6 compartiments" },
+    { id: "remorque_frigo_2e", label: "Remorque frigorifique 2 essieux" },
+    { id: "remorque_frigo_3e", label: "Remorque frigorifique 3 essieux" },
   ]},
   { title: "Engins de chantier", items: [
     { id: "pelle_hydraulique",   label: "Pelle hydraulique" },
