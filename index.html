@@ -471,7 +471,9 @@ tbody tr:hover{background:rgba(0,194,255,0.03)}
 .sa-option-toggle:has(input:checked){border-color:var(--accent);background:rgba(0,194,255,0.1)}
 .sa-option-toggle input{accent-color:var(--accent);width:20px;height:20px;cursor:pointer;flex-shrink:0;margin-top:1px}
 .sa-option-toggle-text{display:flex;flex-direction:column;gap:3px}
+.sa-option-toggle-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .sa-option-toggle-title{font-size:13px;font-weight:700;color:var(--text)}
+.sa-option-toggle-price{flex-shrink:0;font-size:11px;font-weight:700;color:var(--accent);background:rgba(0,194,255,0.1);border:1px solid rgba(0,194,255,0.25);padding:2px 9px;border-radius:20px;white-space:nowrap}
 .sa-option-toggle-desc{font-size:11.5px;color:var(--muted-2);line-height:1.4}
 
 /* ── TOAST ── */
@@ -655,7 +657,10 @@ tbody tr:hover{background:rgba(0,194,255,0.03)}
     <label class="sa-option-toggle">
       <input type="checkbox" id="modal-panel-mecano" />
       <div class="sa-option-toggle-text">
-        <div class="sa-option-toggle-title">🔧 Panel atelier (mécanicien)</div>
+        <div class="sa-option-toggle-title-row">
+          <div class="sa-option-toggle-title">🔧 Panel atelier (mécanicien)</div>
+          <div class="sa-option-toggle-price">29,99€/mois</div>
+        </div>
         <div class="sa-option-toggle-desc">Autorise cette entreprise à créer des comptes mécanicien pour son atelier.</div>
       </div>
     </label>
@@ -1090,9 +1095,11 @@ function packBadge(pack) {
 
 // ─── Prix des packs / calculs budget ─────────────────────────────────────
 const PACK_FIXED_PRICE = { starter: 129, pme: 199, pro: 249 };
+const PANEL_MECANO_PRICE = 29.99;
 function montantMensuel(e) {
-  if (e.pack === "entreprise") return e.montant_mensuel_personnalise || null;
-  return PACK_FIXED_PRICE[e.pack] ?? null;
+  const base = e.pack === "entreprise" ? (e.montant_mensuel_personnalise || null) : (PACK_FIXED_PRICE[e.pack] ?? null);
+  if (base === null) return null;
+  return base + (e.panel_mecano_actif ? PANEL_MECANO_PRICE : 0);
 }
 function moisEcoules(dateDebut) {
   if (!dateDebut) return 0;
