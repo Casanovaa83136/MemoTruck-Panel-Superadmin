@@ -1099,7 +1099,11 @@ const PANEL_MECANO_PRICE = 29.99;
 function montantMensuel(e) {
   const base = e.pack === "entreprise" ? (e.montant_mensuel_personnalise || null) : (PACK_FIXED_PRICE[e.pack] ?? null);
   if (base === null) return null;
-  return base + (e.panel_mecano_actif ? PANEL_MECANO_PRICE : 0);
+  const total = base + (e.panel_mecano_actif ? PANEL_MECANO_PRICE : 0);
+  // Évite les artefacts de virgule flottante (ex: 100.15 + 29.99 = 130.14000000000001)
+  // qui apparaîtraient tels quels dans l'export CSV (fmtEUR() arrondit à l'euro
+  // pour l'affichage, mais le CSV utilise la valeur brute).
+  return Math.round(total * 100) / 100;
 }
 function moisEcoules(dateDebut) {
   if (!dateDebut) return 0;
