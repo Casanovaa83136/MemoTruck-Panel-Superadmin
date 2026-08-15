@@ -276,11 +276,12 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:
 .dash-feed-meta{font-size:10px;color:var(--muted);font-family:var(--mono);white-space:nowrap}
 
 /* budget table */
-.budget-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.budget-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .budget-kpi{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px}
 .budget-kpi .val{font-size:18px;font-weight:900;font-variant-numeric:tabular-nums}
 .budget-kpi .lbl{font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-top:2px}
-@media (max-width:700px){ .budget-kpis{grid-template-columns:1fr} }
+@media (max-width:900px){ .budget-kpis{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:480px){ .budget-kpis{grid-template-columns:1fr} }
 .budget-table-wrap{overflow-x:auto}
 table.budget{width:100%;border-collapse:collapse;font-size:12px}
 table.budget th{
@@ -951,24 +952,28 @@ function downloadCSV(filename, headers, rows) {
   toast("⬇️ Export téléchargé");
 }
 function exportEntreprisesCSV(rows) {
-  const headers = ["Nom", "Code", "Pack", "Montant/mois (€)", "Statut", "Début contrat", "Fin contrat", "Chauffeurs", "Tracteurs", "Remorques", "Admins", "Contact", "Email contact", "Téléphone contact"];
-  const data = rows.map(e => [
-    e.nom, e.code_entreprise, PACK_LABEL[e.pack] || e.pack || "", montantMensuel(e) ?? "",
-    e.est_active ? "Active" : "Suspendue",
-    e.date_debut_contrat ? formatDate(e.date_debut_contrat) : "",
-    e.date_fin_contrat ? formatDate(e.date_fin_contrat) : "",
-    e.chauffeurs ?? 0, e.tracteurs ?? 0, e.remorques ?? 0, e.admins ?? 0,
-    e.contact_nom || "", e.contact_email || "", e.contact_telephone || "",
-  ]);
+  const headers = ["Nom", "Code", "Pack", "Pack (€/mois)", "Option mécano (€/mois)", "Total (€/mois)", "Statut", "Début contrat", "Fin contrat", "Chauffeurs", "Tracteurs", "Remorques", "Admins", "Contact", "Email contact", "Téléphone contact"];
+  const data = rows.map(e => {
+    const d = montantDetail(e);
+    return [
+      e.nom, e.code_entreprise, PACK_LABEL[e.pack] || e.pack || "", d.base ?? "", d.option || "", d.total ?? "",
+      e.est_active ? "Active" : "Suspendue",
+      e.date_debut_contrat ? formatDate(e.date_debut_contrat) : "",
+      e.date_fin_contrat ? formatDate(e.date_fin_contrat) : "",
+      e.chauffeurs ?? 0, e.tracteurs ?? 0, e.remorques ?? 0, e.admins ?? 0,
+      e.contact_nom || "", e.contact_email || "", e.contact_telephone || "",
+    ];
+  });
   downloadCSV(`memotruck-entreprises-${todayStamp()}.csv`, headers, data);
 }
 function exportContratsCSV(rows) {
-  const headers = ["Nom", "Statut", "Pack", "Montant/mois (€)", "Début contrat", "Fin contrat", "Situation"];
+  const headers = ["Nom", "Statut", "Pack", "Pack (€/mois)", "Option mécano (€/mois)", "Total (€/mois)", "Début contrat", "Fin contrat", "Situation"];
   const data = rows.map(e => {
     const diff = e.date_fin_contrat ? daysDiff(e.date_fin_contrat) : null;
     const situation = diff === null ? "Sans échéance" : diff < 0 ? `Expiré depuis ${Math.abs(diff)}j` : `Dans ${diff}j`;
+    const d = montantDetail(e);
     return [
-      e.nom, e.est_active ? "Active" : "Suspendue", PACK_LABEL[e.pack] || e.pack || "", montantMensuel(e) ?? "",
+      e.nom, e.est_active ? "Active" : "Suspendue", PACK_LABEL[e.pack] || e.pack || "", d.base ?? "", d.option || "", d.total ?? "",
       e.date_debut_contrat ? formatDate(e.date_debut_contrat) : "",
       e.date_fin_contrat ? formatDate(e.date_fin_contrat) : "",
       situation,
@@ -1096,14 +1101,22 @@ function packBadge(pack) {
 // ─── Prix des packs / calculs budget ─────────────────────────────────────
 const PACK_FIXED_PRICE = { starter: 129, pme: 199, pro: 249 };
 const PANEL_MECANO_PRICE = 29.99;
-function montantMensuel(e) {
-  const base = e.pack === "entreprise" ? (e.montant_mensuel_personnalise || null) : (PACK_FIXED_PRICE[e.pack] ?? null);
-  if (base === null) return null;
-  const total = base + (e.panel_mecano_actif ? PANEL_MECANO_PRICE : 0);
+
+// Détail du montant mensuel : { base, option, total } — base = null si pack
+// Entreprise sans montant négocié saisi (sur devis). Source de vérité unique,
+// utilisée aussi bien pour l'affichage détaillé que pour le total simple.
+function montantDetail(e) {
+  const base   = e.pack === "entreprise" ? (e.montant_mensuel_personnalise || null) : (PACK_FIXED_PRICE[e.pack] ?? null);
+  const option = e.panel_mecano_actif ? PANEL_MECANO_PRICE : 0;
+  if (base === null) return { base: null, option, total: null };
   // Évite les artefacts de virgule flottante (ex: 100.15 + 29.99 = 130.14000000000001)
   // qui apparaîtraient tels quels dans l'export CSV (fmtEUR() arrondit à l'euro
   // pour l'affichage, mais le CSV utilise la valeur brute).
-  return Math.round(total * 100) / 100;
+  const total = Math.round((base + option) * 100) / 100;
+  return { base, option, total };
+}
+function montantMensuel(e) {
+  return montantDetail(e).total;
 }
 function moisEcoules(dateDebut) {
   if (!dateDebut) return 0;
@@ -1349,6 +1362,12 @@ async function renderErreurs() {
 function fmtEUR(n) {
   return Math.round(n || 0).toLocaleString("fr-FR") + " €";
 }
+// Variante avec centimes (129,99 €) — pour le détail des montants où
+// l'arrondi de fmtEUR() masquerait le prix exact d'une option (29,99€).
+function fmtEURPrecis(n) {
+  if (n == null) return "—";
+  return n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+}
 function relativeTime(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -1468,9 +1487,9 @@ async function renderDashboard() {
 
     // ── Budget / MRR ──
     const rows = entreprises.map(e => {
-      const montant = montantMensuel(e);
+      const d = montantDetail(e);
       const mois = moisEcoules(e.date_debut_contrat);
-      return { ...e, montant, facture: montant ? montant * mois : 0 };
+      return { ...e, montant: d.total, optionMontant: d.option, facture: d.total ? d.total * mois : 0 };
     }).sort((a, b) => (b.montant || 0) - (a.montant || 0));
 
     const activeRows = rows.filter(r => r.est_active);
@@ -1479,6 +1498,10 @@ async function renderDashboard() {
     const nbActifsAvecMontant = activeRows.filter(r => r.montant).length;
     const avgContract = nbActifsAvecMontant ? Math.round(mrr / nbActifsAvecMontant) : 0;
     const nbSurDevisSansMontant = rows.filter(r => r.pack === "entreprise" && !r.montant).length;
+    // Détail options (panel atelier mécano), pour un suivi budget plus précis
+    // que le seul total fusionné pack + options.
+    const optionsMRR       = activeRows.reduce((s, r) => s + (r.optionMontant || 0), 0);
+    const nbOptionsActives = activeRows.filter(r => r.optionMontant > 0).length;
 
     const now = new Date();
     const newThisMonth = entreprises.filter(e => {
@@ -1631,6 +1654,7 @@ async function renderDashboard() {
           <div class="budget-kpi"><div class="val">${fmtEUR(totalFacture)}</div><div class="lbl">Facturé depuis le lancement (estim.)</div></div>
           <div class="budget-kpi"><div class="val">${fmtEUR(mrr)}</div><div class="lbl">Actif ce mois-ci</div></div>
           <div class="budget-kpi"><div class="val">${fmtEUR(avgContract)}</div><div class="lbl">Valeur moyenne / contrat</div></div>
+          <div class="budget-kpi"><div class="val">${fmtEURPrecis(optionsMRR)}</div><div class="lbl">🔧 Dont options — ${nbOptionsActives} actives</div></div>
         </div>
         <div class="budget-table-wrap">
           <table class="budget">
@@ -1643,7 +1667,7 @@ async function renderDashboard() {
                   <td><strong>${esc(r.nom)}</strong></td>
                   <td><span class="pack-pill ${PACK_PILL_CLASS[r.pack] || ''}">${PACK_LABEL[r.pack] || r.pack || '—'}</span></td>
                   <td>${formatDate(r.date_debut_contrat)}</td>
-                  <td class="num">${r.montant ? fmtEUR(r.montant) : '—'}</td>
+                  <td class="num">${r.montant ? fmtEUR(r.montant) : '—'}${r.optionMontant > 0 ? `<div style="font-size:9.5px;color:var(--accent);font-weight:700;">dont 🔧 ${fmtEURPrecis(r.optionMontant)}</div>` : ''}</td>
                   <td><span class="status-pill ${r.est_active ? 'status-pill-active' : 'status-pill-suspended'}">${r.est_active ? 'Active' : 'Suspendue'}</span></td>
                   <td class="num">${fmtEUR(r.facture)}</td>
                 </tr>
@@ -1864,6 +1888,7 @@ async function renderEntreprises() {
 async function afficherDetailEntreprise(id) {
   const e = _entreprises.find(x => x.id === id);
   if (!e) return;
+  const detail = montantDetail(e);
   const zone = document.getElementById("detail-zone");
   zone.innerHTML = `<div class="sa-loading">Chargement admins…</div>`;
 
@@ -1884,6 +1909,13 @@ async function afficherDetailEntreprise(id) {
           <div class="detail-row"><span class="detail-label">Pack</span><span class="detail-val">${packBadge(e.pack)}</span></div>
           <div class="detail-row"><span class="detail-label">Début</span><span class="detail-val">${formatDate(e.date_debut_contrat)}</span></div>
           <div class="detail-row"><span class="detail-label">Fin</span><span class="detail-val">${contratBadge(e.date_fin_contrat)}</span></div>
+        </div>
+
+        <div>
+          <div class="detail-section-title">FACTURATION</div>
+          <div class="detail-row"><span class="detail-label">${e.pack === "entreprise" ? "Montant négocié" : "Pack " + (PACK_LABEL[e.pack] || e.pack)}</span><span class="detail-val">${detail.base != null ? fmtEURPrecis(detail.base) + " / mois" : "Sur devis — montant non saisi"}</span></div>
+          ${detail.option > 0 ? `<div class="detail-row"><span class="detail-label">🔧 Option panel atelier</span><span class="detail-val">+ ${fmtEURPrecis(detail.option)} / mois</span></div>` : ""}
+          <div class="detail-row" style="border-top:1px solid var(--border);margin-top:2px;padding-top:8px;"><span class="detail-label" style="font-weight:800;color:var(--text);">Total mensuel</span><span class="detail-val" style="font-weight:800;color:var(--accent);">${detail.total != null ? fmtEURPrecis(detail.total) + " / mois" : "—"}</span></div>
         </div>
 
         <div>
