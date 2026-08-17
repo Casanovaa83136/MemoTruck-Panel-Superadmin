@@ -309,7 +309,7 @@ table.budget tr.total td{border-bottom:none;border-top:1.5px solid var(--border-
 .btn-icon{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center}
 
 /* ── ENTREPRISES (lignes) ── */
-.ent-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.ent-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;flex-shrink:0}
 .ent-row{display:flex;align-items:center;gap:14px;padding:13px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
 .ent-row:last-child{border-bottom:none}
 .ent-row:hover{background:rgba(0,194,255,0.025)}
@@ -578,6 +578,7 @@ tbody tr:hover{background:rgba(0,194,255,0.03)}
       <span class="sa-badge" id="badge-erreurs">0</span>
     </div>
     <div class="sa-nav-item" data-section="superadmins">🔐 Comptes superadmin</div>
+    <div class="sa-nav-item" data-section="profils">🚛 Profils véhicules</div>
 
     <div class="sa-sidebar-footer">
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px;" id="sa-user-email"></div>
@@ -1139,57 +1140,55 @@ function avatarHTML(nom, pack, sm) {
 }
 
 // ─── Profils véhicules autorisés ────────────────────────────────────────
-// Doit rester synchro avec PROFILS_MOTEUR / PROFILS_REMORQUE / PROFILS_ENGINS
-// dans memotruck-app-dev/js/utils.js (source de vérité côté appli chauffeur).
-const VEHICLE_PROFILE_GROUPS = [
-  { title: "Tracteurs & porteurs", items: [
-    { id: "tracteur_4x2",      label: "Tracteur 4x2" },
-    { id: "tracteur_6x2",      label: "Tracteur 6x2" },
-    { id: "tracteur_6x4",      label: "Tracteur 6x4" },
-    { id: "tracteur_agricole", label: "Tracteur agricole" },
-    { id: "porteur_19t",       label: "Porteur 19t" },
-    { id: "porteur_26t",       label: "Porteur 26t" },
-    { id: "porteur_32t",       label: "Porteur 32t" },
-    { id: "porteur_32t_8x4",   label: "Porteur 32t 8x4" },
-  ]},
-  { title: "Véhicules légers", items: [
-    { id: "voiture_societe", label: "Voiture de société" },
-    { id: "utilitaire",      label: "Utilitaire / Fourgon" },
-  ]},
-  { title: "Remorques", items: [
-    { id: "remorque_1e",   label: "Remorque 1 essieu" },
-    { id: "remorque_2e",   label: "Remorque 2 essieux" },
-    { id: "remorque_3e",   label: "Remorque 3 essieux" },
-    { id: "porte_char_4e", label: "Porte-char 4 essieux" },
-    { id: "porte_char_5e", label: "Porte-char 5 essieux" },
-    { id: "porte_char_6e", label: "Porte-char 6 essieux" },
-  ]},
-  { title: "Citernes & remorques frigo", items: [
-    { id: "citerne_alim_2c",   label: "Citerne alimentaire 2 compartiments" },
-    { id: "citerne_alim_3c",   label: "Citerne alimentaire 3 compartiments" },
-    { id: "citerne_alim_4c",   label: "Citerne alimentaire 4 compartiments" },
-    { id: "citerne_alim_5c",   label: "Citerne alimentaire 5 compartiments" },
-    { id: "citerne_alim_6c",   label: "Citerne alimentaire 6 compartiments" },
-    { id: "remorque_frigo_2e", label: "Remorque frigorifique 2 essieux" },
-    { id: "remorque_frigo_3e", label: "Remorque frigorifique 3 essieux" },
-  ]},
-  { title: "Engins de chantier", items: [
-    { id: "pelle_hydraulique",   label: "Pelle hydraulique" },
-    { id: "rouleau_compacteur",  label: "Rouleau compacteur" },
-    { id: "bulldozer_chargeuse", label: "Bulldozer / Chargeuse" },
-    { id: "grue_nacelle",        label: "Grue / Nacelle" },
-    { id: "finisseur",           label: "Finisseur" },
-    { id: "alimentateur",        label: "Alimentateur" },
-    { id: "raboteuse",           label: "Raboteuse" },
-  ]},
-];
-const VEHICLE_PROFILE_LABELS = Object.fromEntries(
-  VEHICLE_PROFILE_GROUPS.flatMap(g => g.items).map(it => [it.id, it.label])
-);
-function profilLabel(id) { return VEHICLE_PROFILE_LABELS[id] || id; }
+// Catalogue global (entreprise_id NULL), géré depuis l'écran "🚛 Profils
+// véhicules" (voir renderProfilsVehicules plus bas) — remplace l'ancienne
+// liste VEHICLE_PROFILE_GROUPS codée en dur. Chargé une fois après connexion
+// (voir showApp), utilisé ici pour la grille "profils autorisés" de la fiche
+// entreprise (limite l'accès au catalogue global selon le pack ; les profils
+// perso créés par un exploitant restent hors liste blanche, toujours
+// disponibles pour sa propre entreprise).
+let profilsVehiculesCache = [];
+
+async function loadProfilsVehicules() {
+  try {
+    const { profils } = await api("list_profils_vehicules");
+    profilsVehiculesCache = profils || [];
+  } catch (_) {
+    profilsVehiculesCache = [];
+  }
+}
+
+function profilLabel(id) {
+  const p = profilsVehiculesCache.find(x => x.id === id);
+  return p ? p.label : id;
+}
+
+const CATEGORIE_TITRE = { moteur: "Tracteurs & porteurs", remorque: "Remorques" };
+
+// Regroupe une liste de profils par famille (Bâchée, Frigo, Citerne
+// alimentaire...), triée par ordre alphabétique — sinon tout se mélange dès
+// qu'il y a beaucoup de profils dans une même catégorie.
+function grouperParFamille(profils) {
+  const groupes = {};
+  profils.forEach(p => {
+    const cle = p.famille || CATEGORIE_TITRE[p.categorie] || "Autres";
+    if (!groupes[cle]) groupes[cle] = [];
+    groupes[cle].push(p);
+  });
+  return Object.keys(groupes)
+    .sort((a, b) => a.localeCompare(b, "fr"))
+    .map(famille => ({ title: famille, items: groupes[famille].sort((a,b) => (a.ordre||0) - (b.ordre||0)) }));
+}
 
 function renderProfilsGridHTML() {
-  return VEHICLE_PROFILE_GROUPS.map(g => `
+  const actifs = profilsVehiculesCache.filter(p => p.actif);
+  const groupes = grouperParFamille(actifs);
+
+  if (groupes.length === 0) {
+    return `<div style="font-size:12px;color:var(--muted);padding:8px 0;">Catalogue non chargé — réessaie dans un instant.</div>`;
+  }
+
+  return groupes.map(g => `
     <div class="sa-profils-group">
       <div class="sa-profils-group-title">${esc(g.title)}</div>
       <div class="sa-profils-items">
@@ -1203,7 +1202,6 @@ function renderProfilsGridHTML() {
     </div>
   `).join("");
 }
-document.getElementById("modal-profils-grid").innerHTML = renderProfilsGridHTML();
 document.getElementById("profils-select-all").addEventListener("click", () => {
   document.querySelectorAll(".profil-checkbox").forEach(cb => cb.checked = true);
 });
@@ -1223,7 +1221,7 @@ function contratBadge(iso) {
 
 // ─── Navigation ─────────────────────────────────────────────────────────
 let currentSection = "dashboard";
-const _saTitles = { dashboard:"Dashboard", entreprises:"Gestion des entreprises", contrats:"Suivi des contrats", journal:"Journal d'activité", erreurs:"Erreurs applicatives", superadmins:"Comptes superadmin" };
+const _saTitles = { dashboard:"Dashboard", entreprises:"Gestion des entreprises", contrats:"Suivi des contrats", journal:"Journal d'activité", erreurs:"Erreurs applicatives", superadmins:"Comptes superadmin", profils:"Profils véhicules" };
 function navigateTo(section) {
   currentSection = section;
   document.querySelectorAll(".sa-nav-item").forEach(el => {
@@ -1254,6 +1252,7 @@ function render() {
   if (currentSection === "journal")     renderJournal();
   if (currentSection === "erreurs")     renderErreurs();
   if (currentSection === "superadmins") renderSuperadmins();
+  if (currentSection === "profils")     renderProfilsVehicules();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2098,6 +2097,7 @@ function ouvrirModalEntreprise(entreprise) {
   document.getElementById("modal-contact-email").value  = entreprise?.contact_email || "";
   document.getElementById("modal-contact-tel").value    = entreprise?.contact_telephone || "";
   document.getElementById("modal-notes").value          = entreprise?.notes || "";
+  document.getElementById("modal-profils-grid").innerHTML = renderProfilsGridHTML();
   const autorises = entreprise?.profils_autorises || [];
   document.querySelectorAll(".profil-checkbox").forEach(cb => { cb.checked = autorises.includes(cb.value); });
   document.getElementById("modal-panel-mecano").checked = !!entreprise?.panel_mecano_actif;
@@ -2288,6 +2288,221 @@ async function renderSuperadmins() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// PROFILS VÉHICULES (catalogue global — entreprise_id NULL)
+// Vocabulaire fixe des types de cartes : chaque entrée a une logique de
+// rendu dédiée dans la PWA/le panel bureau, ce ne sont PAS des cases libres.
+// ═══════════════════════════════════════════════════════════════════════
+const PV_DOCS = {
+  moteur:   [ { id:"ct", label:"Contrôle technique" }, { id:"assurance", label:"Assurance" }, { id:"limiteur", label:"Limiteur de vitesse" }, { id:"chrono", label:"Chronotachygraphe" }, { id:"frigo", label:"Entretien groupe frigo" }, { id:"nettoyage", label:"Nettoyage intérieur" } ],
+  // Le hayon n'est plus un doc de profil : c'est une option cochée
+  // directement sur le véhicule, indépendante du profil (panel bureau).
+  remorque: [ { id:"ct", label:"Contrôle technique" }, { id:"assurance", label:"Assurance" }, { id:"frigo", label:"Entretien groupe frigo" }, { id:"nettoyage", label:"Nettoyage intérieur" }, { id:"graissage", label:"Graissage articulations" } ]
+};
+
+async function renderProfilsVehicules() {
+  const main = document.getElementById("sa-main");
+  try {
+    const { profils } = await api("list_profils_vehicules");
+    profilsVehiculesCache = profils || [];
+
+    const groupes = grouperParFamille(profils);
+
+    main.innerHTML = `
+      <div class="sa-section-title">Profils véhicules — catalogue global (${profils.length})</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;max-width:640px;">
+        Catalogue partagé par les 3 applis. Chaque entreprise y accède selon la liste blanche de son pack (fiche entreprise), en plus de ses propres profils perso créés depuis son panel bureau.
+      </div>
+      <div class="dash-toprow" style="justify-content:flex-end;">
+        <button class="btn btn-primary" id="btn-new-profil">+ Ajouter un profil</button>
+      </div>
+      ${groupes.map(g => `
+        <div class="sa-section-title" style="font-size:14px;margin-top:20px;">${esc(g.title)}</div>
+        <div class="ent-table-wrap">
+          ${g.items.length === 0 ? `<div style="padding:14px;color:var(--muted);font-size:13px;">Aucun profil</div>` : g.items.map(p => `
+            <div class="ent-row" style="${p.actif ? "" : "opacity:0.5;"}">
+              <div style="flex:1;min-width:200px;">
+                <div class="ent-name">${esc(p.label)} ${p.actif ? "" : '<span class="badge" style="margin-left:6px;">Désactivé</span>'}</div>
+                <div class="ent-sub">${p.categorie === "moteur" ? `${p.essieux_avant ?? "?"} essieu(x) avant / ${p.essieux_arriere ?? "?"} arrière` : `${p.nb_essieux ?? "?"} essieu(x)${p.nb_compartiments ? ` · ${p.nb_compartiments} compartiments` : ""}`} — ${(p.docs||[]).join(", ") || "aucune carte"}</div>
+              </div>
+              <div class="ent-actions">
+                <button class="btn btn-sm" data-edit-profil="${p.id}">✏️ Modifier</button>
+                <button class="btn btn-sm" data-toggle-profil="${p.id}" data-actif="${p.actif}">${p.actif ? "⏸️ Désactiver" : "▶️ Réactiver"}</button>
+                <button class="btn btn-sm" data-delete-profil="${p.id}" data-label="${esc(p.label)}" style="background:rgba(239,83,80,0.08);color:var(--danger);border:1px solid rgba(239,83,80,0.2);">🗑️</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `).join("")}
+    `;
+
+    document.getElementById("btn-new-profil").addEventListener("click", () => _ouvrirModalProfil(null));
+    document.querySelectorAll("[data-edit-profil]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const p = profilsVehiculesCache.find(x => x.id === btn.dataset.editProfil);
+        _ouvrirModalProfil(p);
+      });
+    });
+    document.querySelectorAll("[data-toggle-profil]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const actif = btn.dataset.actif === "true";
+        try {
+          await api("update_profil_vehicule", { id: btn.dataset.toggleProfil, actif: !actif });
+          toast(actif ? "⏸️ Profil désactivé" : "▶️ Profil réactivé");
+          await loadProfilsVehicules();
+          renderProfilsVehicules();
+        } catch (err) { toast("❌ " + err.message); }
+      });
+    });
+    document.querySelectorAll("[data-delete-profil]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm(`Supprimer définitivement le profil "${btn.dataset.label}" ?\nLes véhicules déjà créés avec ce profil garderont leurs données, mais n'afficheront plus les bonnes cartes.`)) return;
+        try {
+          await api("delete_profil_vehicule", { id: btn.dataset.deleteProfil });
+          toast("🗑️ Profil supprimé");
+          await loadProfilsVehicules();
+          renderProfilsVehicules();
+        } catch (err) { toast("❌ " + err.message); }
+      });
+    });
+  } catch (e) {
+    main.innerHTML = `<div class="sa-loading">❌ ${e.message}</div>`;
+  }
+}
+
+function _ouvrirModalProfil(existing) {
+  const isEdit = !!existing;
+  const overlay = document.createElement("div");
+  overlay.className = "sa-modal-overlay open";
+  overlay.innerHTML = `
+    <div class="sa-modal">
+      <div class="sa-modal-header">
+        <h2>${isEdit ? "Modifier le profil" : "Nouveau profil véhicule"}</h2>
+        <button class="sa-modal-close" id="pv-close">✕</button>
+      </div>
+      <div class="sa-field">
+        <label>CATÉGORIE *</label>
+        <select id="pv-categorie" ${isEdit ? "disabled" : ""}>
+          <option value="moteur" ${existing?.categorie === "moteur" ? "selected" : ""}>Tracteur / Porteur</option>
+          <option value="remorque" ${!existing || existing?.categorie === "remorque" ? "selected" : ""}>Remorque</option>
+        </select>
+      </div>
+      <div class="sa-field">
+        <label>NOM DU PROFIL *</label>
+        <input type="text" id="pv-label" placeholder="ex: Benne céréalière 2 essieux" value="${esc(existing?.label || "")}" />
+      </div>
+      <div class="sa-field">
+        <label>FAMILLE *</label>
+        <input type="text" id="pv-famille" list="pv-famille-suggestions" placeholder="ex: Benne, Frigo, Citerne alimentaire..." value="${esc(existing?.famille || "")}" />
+        <datalist id="pv-famille-suggestions">
+          ${[...new Set(profilsVehiculesCache.map(p => p.famille).filter(Boolean))].sort((a,b) => a.localeCompare(b,"fr")).map(f => `<option value="${esc(f)}"></option>`).join("")}
+        </datalist>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Sert à regrouper les profils dans les listes (ex: tous les "Frigo" ensemble).</div>
+      </div>
+      <div class="sa-field" id="pv-champs-moteur" style="display:flex;gap:10px;">
+        <div style="flex:1;">
+          <label style="font-size:11px;color:var(--muted);">ESSIEUX AVANT</label>
+          <input type="number" id="pv-essieux-avant" min="1" value="${existing?.essieux_avant ?? 1}" />
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:11px;color:var(--muted);">ESSIEUX ARRIÈRE</label>
+          <input type="number" id="pv-essieux-arriere" min="1" value="${existing?.essieux_arriere ?? 1}" />
+        </div>
+      </div>
+      <div class="sa-field" id="pv-champs-remorque" style="display:flex;gap:10px;">
+        <div style="flex:1;">
+          <label style="font-size:11px;color:var(--muted);">NOMBRE D'ESSIEUX</label>
+          <input type="number" id="pv-nb-essieux" min="1" value="${existing?.nb_essieux ?? 2}" />
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:11px;color:var(--muted);">COMPARTIMENTS (citerne — optionnel)</label>
+          <input type="number" id="pv-nb-compartiments" min="0" placeholder="—" value="${existing?.nb_compartiments ?? ""}" />
+        </div>
+      </div>
+      <div class="sa-field">
+        <label>CARTES À AFFICHER</label>
+        <div id="pv-docs-moteur" class="sa-profils-items"></div>
+        <div id="pv-docs-remorque" class="sa-profils-items"></div>
+      </div>
+      <div class="sa-error" id="pv-error"></div>
+      <div class="sa-modal-actions">
+        <button class="btn btn-ghost" id="pv-cancel">Annuler</button>
+        <button class="btn btn-primary" id="pv-save">${isEdit ? "✓ Enregistrer" : "✓ Créer"}</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  function docsChecksHTML(cat) {
+    const checked = existing?.docs || [];
+    return PV_DOCS[cat].map(d => `
+      <label class="sa-profils-item">
+        <input type="checkbox" class="pv-doc-check" value="${d.id}" ${checked.includes(d.id) ? "checked" : ""} />
+        ${esc(d.label)}
+      </label>
+    `).join("");
+  }
+
+  const selectCat = overlay.querySelector("#pv-categorie");
+  const toggleChamps = () => {
+    const isMoteur = selectCat.value === "moteur";
+    overlay.querySelector("#pv-champs-moteur").style.display   = isMoteur ? "flex" : "none";
+    overlay.querySelector("#pv-champs-remorque").style.display = isMoteur ? "none" : "flex";
+    overlay.querySelector("#pv-docs-moteur").style.display     = isMoteur ? "grid" : "none";
+    overlay.querySelector("#pv-docs-remorque").style.display   = isMoteur ? "none" : "grid";
+  };
+  overlay.querySelector("#pv-docs-moteur").innerHTML   = docsChecksHTML("moteur");
+  overlay.querySelector("#pv-docs-remorque").innerHTML = docsChecksHTML("remorque");
+  selectCat.addEventListener("change", toggleChamps);
+  toggleChamps();
+
+  const close = () => overlay.remove();
+  overlay.querySelector("#pv-close").addEventListener("click", close);
+  overlay.querySelector("#pv-cancel").addEventListener("click", close);
+
+  overlay.querySelector("#pv-save").addEventListener("click", async () => {
+    const errEl = overlay.querySelector("#pv-error");
+    errEl.textContent = "";
+    const categorie = selectCat.value;
+    const label = overlay.querySelector("#pv-label").value.trim();
+    const famille = overlay.querySelector("#pv-famille").value.trim();
+    if (!label) { errEl.textContent = "Nom du profil requis"; return; }
+    if (!famille) { errEl.textContent = "Famille requise (pour bien ranger le profil dans les listes)"; return; }
+
+    const docsContainer = categorie === "moteur" ? overlay.querySelector("#pv-docs-moteur") : overlay.querySelector("#pv-docs-remorque");
+    const docs = Array.from(docsContainer.querySelectorAll(".pv-doc-check:checked")).map(c => c.value);
+
+    const payload = { label, famille, docs };
+    if (categorie === "moteur") {
+      payload.essieux_avant = Number(overlay.querySelector("#pv-essieux-avant").value) || 1;
+      payload.essieux_arriere = Number(overlay.querySelector("#pv-essieux-arriere").value) || 1;
+      payload.peut_tracter_remorque = true;
+    } else {
+      payload.nb_essieux = Number(overlay.querySelector("#pv-nb-essieux").value) || 1;
+      const compartiments = overlay.querySelector("#pv-nb-compartiments").value;
+      payload.nb_compartiments = compartiments ? Number(compartiments) : null;
+    }
+
+    const btn = overlay.querySelector("#pv-save");
+    btn.disabled = true; btn.textContent = "…";
+    try {
+      if (isEdit) {
+        await api("update_profil_vehicule", { id: existing.id, ...payload });
+        toast("✅ Profil mis à jour");
+      } else {
+        await api("create_profil_vehicule", { categorie, ...payload });
+        toast(`✅ Profil "${label}" créé`);
+      }
+      close();
+      await loadProfilsVehicules();
+      renderProfilsVehicules();
+    } catch (err) {
+      errEl.textContent = "❌ " + err.message;
+      btn.disabled = false; btn.textContent = isEdit ? "✓ Enregistrer" : "✓ Créer";
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // SUPPRESSION ENTREPRISE
 // ═══════════════════════════════════════════════════════════════════════
 let _deleteEntrepriseId  = null;
@@ -2383,6 +2598,7 @@ document.getElementById("sa-mobile-backdrop").addEventListener("click", closeMob
 function showApp() {
   document.getElementById("screen-login").style.display = "none";
   document.getElementById("screen-app").style.display   = "flex";
+  loadProfilsVehicules();
   navigateTo("dashboard");
 }
 
