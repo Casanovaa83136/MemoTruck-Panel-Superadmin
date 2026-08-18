@@ -609,8 +609,8 @@ tbody tr:hover{background:rgba(0,194,255,0.03)}
       <label>PACK / ABONNEMENT *</label>
       <select id="modal-pack" style="width:100%;height:44px;background:#ffffff;border:1.5px solid var(--sa-border, rgba(255,255,255,0.15));border-radius:10px;padding:0 14px;color:#1a1a1a;font-size:14px;font-weight:600;">
         <option value="starter">⭐ Starter — jusqu'à 5 véhicules — 129€/mois</option>
-        <option value="pme">🏢 PME — jusqu'à 15 véhicules — 199€/mois</option>
-        <option value="pro">🚀 Pro — jusqu'à 35 véhicules — 249€/mois</option>
+        <option value="pme">🏢 PME — jusqu'à 15 véhicules — 249€/mois</option>
+        <option value="pro">🚀 Pro — jusqu'à 35 véhicules — 349€/mois</option>
         <option value="entreprise">🏭 Entreprise — illimité — Sur devis</option>
       </select>
     </div>
@@ -661,7 +661,7 @@ tbody tr:hover{background:rgba(0,194,255,0.03)}
       <div class="sa-option-toggle-text">
         <div class="sa-option-toggle-title-row">
           <div class="sa-option-toggle-title">🔧 Panel atelier (mécanicien)</div>
-          <div class="sa-option-toggle-price">29,99€/mois</div>
+          <div class="sa-option-toggle-price">39€/mois</div>
         </div>
         <div class="sa-option-toggle-desc">Autorise cette entreprise à créer des comptes mécanicien pour son atelier.</div>
       </div>
@@ -1100,8 +1100,8 @@ function packBadge(pack) {
 }
 
 // ─── Prix des packs / calculs budget ─────────────────────────────────────
-const PACK_FIXED_PRICE = { starter: 129, pme: 199, pro: 249 };
-const PANEL_MECANO_PRICE = 29.99;
+const PACK_FIXED_PRICE = { starter: 129, pme: 249, pro: 349 };
+const PANEL_MECANO_PRICE = 39;
 
 // Détail du montant mensuel : { base, option, total } — base = null si pack
 // Entreprise sans montant négocié saisi (sur devis). Source de vérité unique,
