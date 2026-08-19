@@ -1039,6 +1039,7 @@ const ACTIVITY_LABELS = {
   delete_entreprise:     { icon: "🗑️", label: "Entreprise supprimée",      cls: "badge-red"    },
   create_admin:          { icon: "👤", label: "Admin créé",                cls: "badge-blue"   },
   reset_admin_password:  { icon: "🔑", label: "Mot de passe réinitialisé", cls: "badge-orange" },
+  reset_chauffeur_password: { icon: "🔑", label: "Mot de passe chauffeur réinitialisé", cls: "badge-orange" },
   create_superadmin:     { icon: "🔐", label: "Compte superadmin créé",    cls: "badge-blue"   },
   delete_superadmin:     { icon: "🚫", label: "Compte superadmin supprimé",cls: "badge-red"    },
 };
@@ -1054,6 +1055,7 @@ const ACTIVITY_VERB = {
   delete_entreprise:     "a supprimé",
   create_admin:          "a ajouté un admin pour",
   reset_admin_password:  "a réinitialisé le mot de passe d'un admin de",
+  reset_chauffeur_password: "a réinitialisé le mot de passe d'un chauffeur de",
   create_superadmin:     "a créé un compte superadmin",
   delete_superadmin:     "a supprimé un compte superadmin",
 };
@@ -1892,8 +1894,9 @@ async function afficherDetailEntreprise(id) {
   zone.innerHTML = `<div class="sa-loading">Chargement admins…</div>`;
 
   try {
-    const [{ admins }, usage] = await Promise.all([
+    const [{ admins }, { chauffeurs }, usage] = await Promise.all([
       api("list_admins", { entreprise_id: id }),
+      api("list_chauffeurs", { entreprise_id: id }),
       e.panel_mecano_actif ? api("entreprise_usage", { entreprise_id: id }).catch(() => null) : Promise.resolve(null),
     ]);
     zone.innerHTML = `
@@ -1949,6 +1952,19 @@ async function afficherDetailEntreprise(id) {
           `).join("") || `<div style="font-size:12px;color:var(--muted);">Aucun admin</div>`}
         </div>
 
+        <div>
+          <div class="detail-section-title">CHAUFFEURS (${chauffeurs.length})</div>
+          ${chauffeurs.map(c => `
+            <div class="detail-row">
+              <span class="detail-label">${esc(c.prenom)} ${esc(c.nom)} ${!c.est_valide ? `<span class="badge badge-orange" style="margin-left:6px;">En attente</span>` : ""}</span>
+              <span class="detail-val" style="font-size:11px;display:flex;align-items:center;gap:8px;">
+                ${esc(c.email)}
+                <button class="btn btn-ghost btn-sm" data-reset-chauffeur="${c.id}" data-reset-email="${esc(c.email)}" title="Réinitialiser le mot de passe">🔑</button>
+              </span>
+            </div>
+          `).join("") || `<div style="font-size:12px;color:var(--muted);">Aucun chauffeur</div>`}
+        </div>
+
         ${usage ? `
         <div>
           <div class="detail-section-title">🔧 USAGE ATELIER</div>
@@ -1974,6 +1990,20 @@ async function afficherDetailEntreprise(id) {
         const password = generatePassword();
         try {
           await api("reset_admin_password", { admin_id: adminId, password });
+          toast("✅ Mot de passe réinitialisé");
+          showCredentialsModal({ email, password });
+        } catch (err) { toast("❌ " + err.message); }
+      });
+    });
+
+    zone.querySelectorAll("[data-reset-chauffeur]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const chauffeurId = btn.dataset.resetChauffeur;
+        const email       = btn.dataset.resetEmail;
+        if (!confirm(`Générer un nouveau mot de passe pour ${email} ?\nL'ancien ne fonctionnera plus.`)) return;
+        const password = generatePassword();
+        try {
+          await api("reset_chauffeur_password", { chauffeur_id: chauffeurId, password });
           toast("✅ Mot de passe réinitialisé");
           showCredentialsModal({ email, password });
         } catch (err) { toast("❌ " + err.message); }
