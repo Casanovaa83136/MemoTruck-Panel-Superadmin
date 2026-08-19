@@ -1043,6 +1043,9 @@ const ACTIVITY_LABELS = {
   reset_chauffeur_password: { icon: "🔑", label: "Mot de passe chauffeur réinitialisé", cls: "badge-orange" },
   create_superadmin:     { icon: "🔐", label: "Compte superadmin créé",    cls: "badge-blue"   },
   delete_superadmin:     { icon: "🚫", label: "Compte superadmin supprimé",cls: "badge-red"    },
+  create_profil_vehicule: { icon: "🚛", label: "Profil véhicule créé",    cls: "badge-green"  },
+  update_profil_vehicule: { icon: "✏️", label: "Profil véhicule modifié", cls: "badge-blue"   },
+  delete_profil_vehicule: { icon: "🗑️", label: "Profil véhicule supprimé",cls: "badge-red"    },
 };
 function activityBadge(action) {
   const a = ACTIVITY_LABELS[action] || { icon: "•", label: action, cls: "badge-blue" };
@@ -1059,6 +1062,9 @@ const ACTIVITY_VERB = {
   reset_chauffeur_password: "a réinitialisé le mot de passe d'un chauffeur de",
   create_superadmin:     "a créé un compte superadmin",
   delete_superadmin:     "a supprimé un compte superadmin",
+  create_profil_vehicule: "a ajouté le profil véhicule",
+  update_profil_vehicule: "a modifié le profil véhicule",
+  delete_profil_vehicule: "a supprimé le profil véhicule",
 };
 const PERSON_PALETTE = ["#00C2FF", "#9085e9", "#3fd39c", "#e0ab2e"];
 const _personColorMap = {};
